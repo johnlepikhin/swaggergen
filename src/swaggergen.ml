@@ -1,5 +1,43 @@
 open Yojson
 
+type 'a t = Yojson.json
+
+type path = string * [ `Path ] t option
+
+type contact = [ `Contact ] t
+
+type license = [ `License ] t
+
+type info = [ `Info ] t
+
+type parameter = [ `Parameter ] t
+
+type parameters = [ `Parameter | `Reference ] t list
+
+type schema = [ `Schema ] t
+
+type response = [ `Response ] t
+
+type externalDocs = [ `ExternalDocs ] t
+
+type security = [ `Security ] t
+
+type headers = [ `Headers ] t
+
+type responseExamples = [ `ResponseExamples ] t
+
+type operation = [ `Operation ] t
+
+type definition = [ `Definition ] t
+
+type tag = [ `Tag ] t
+
+type securityScheme = [ `SecurityScheme ] t
+
+type swagger = [ `Swagger ] t
+
+
+
 let string v = Some (`String v)
 let ostring = function None -> None | Some v -> string v
 let stringlist v = Some (`List (List.map (fun v -> `String v) v))
@@ -14,10 +52,9 @@ let ojson (v : json option) = v
 let ojsonlist : (json list option -> json option) = function None -> None | Some v -> Some (`List v)
 
 type assoc = string * (json option)
-type pre_object = assoc list
 type json_object = (string * json) list
 
-let assoc (lst : pre_object) : json =
+let make_assoc (lst : assoc list) : json =
 	let rec loop = function
 		| [] -> []
 		| (name, Some v) :: tl -> (name, v) :: loop tl
@@ -26,23 +63,24 @@ let assoc (lst : pre_object) : json =
 	let lst = loop lst in
 	`Assoc lst
 
-let oassoc (lst : pre_object) : json option = Some (assoc lst)
+let assoc (lst : assoc list) : json option = Some (make_assoc lst)
+let oassoc = function | None -> None | Some v -> assoc v
 
 let contact name url email =
-	assoc [
+	make_assoc [
 		"name", string name;
 		"url", string url;
 		"email", string email;
 	]
 
 let license ?url name =
-	assoc [
+	make_assoc [
 		"name", string name;
 		"url", ostring url;
 	]
 
-let info ?description ?termsOfService ?contact ?license title version =
-	assoc [
+let info ?description ?termsOfService ?(contact : contact option) ?(license : license option) title version =
+	make_assoc [
 		"title", string title;
 		"description", ostring description;
 		"termsOfService", ostring termsOfService;
@@ -53,7 +91,7 @@ let info ?description ?termsOfService ?contact ?license title version =
 
 let parameter ?description ?required name _in (* TODO *) =
 	let required = if _in = "path" then Some true else required in
-	assoc [
+	make_assoc [
 		"name", string name;
 		"in", string _in;
 		"description", ostring description;
@@ -72,13 +110,13 @@ module Schema =
 
 		type property = {
 			name : string;
-			content : t;
+			content : st;
 			required : bool;
 		}
 
 		and s_object = property list
 
-		and t =
+		and st =
 			| String of s_string
 			| Integer of s_integer
 			| Object of s_object
@@ -91,35 +129,41 @@ module Schema =
 
 		let s_object props = Object props
 
-		let rec to_json = function
+		let rec to_schema = function
 			| String v ->
-				assoc [
+				make_assoc [
 					"type", string "string";
 					"format", ostring v.string_format;
 				]
 			| Integer v ->
-				assoc [
+				make_assoc [
 					"type", string "integer";
 					"format", ostring v.integer_format;
 				]
 			| Object v ->
-				let properties = List.map (fun v -> v.name, (to_json v.content |> json)) v |> assoc in
+				let properties = List.map (fun v -> v.name, (to_schema v.content |> json)) v |> make_assoc in
 				let required = List.fold_left (fun ret v -> if v.required then v.name :: ret else ret) [] v |> stringlist in
-				assoc [
+				make_assoc [
 					"type", string "object";
 					"properties", json properties;
 					"required", required;
 				]
 	end
 
-let addresponse ?(codevalue=`Default) ?schema ?headers ?examples description lst =
-	let v = assoc [
+let addresponse
+	?(code=`Default)
+	?(schema : schema option)
+	?(headers : headers option)
+	?(examples : responseExamples option)
+	description
+	lst =
+	let v = make_assoc [
 		"description", string description;
 		"schema", ojson schema;
 		"headers", ojson headers;
 		"examples", ojson examples;
 	] in
-	let name = match codevalue with
+	let name = match code with
 		| `Default -> "default"
 		| `Code v -> string_of_int v
 	in
@@ -129,17 +173,17 @@ let operation
 	?tags
 	?summary
 	?description
-	?externalDocs
+	?(externalDocs : externalDocs option)
 	?operationId
 	?consumes
 	?produces
-	?parameters
+	?(parameters : parameters option)
 	?schemes
 	?deprecated
-	?security
-	responses
+	?(security : security option)
+	(responses : (string * response option) list) : operation
 	=
-	assoc [
+	make_assoc [
 		"tags", ostringlist tags;
 		"summary", ostring summary;
 		"description", ostring description;
@@ -147,16 +191,27 @@ let operation
 		"operationId", ostring operationId;
 		"consumes", ostringlist consumes;
 		"produces", ostringlist produces;
-		"parameters", ojson parameters;
-		"responses", oassoc responses;
+		"parameters", ojsonlist parameters;
+		"responses", assoc responses;
 		"schemes", ostringlist schemes;
 		"deprecated", obool deprecated;
 		"security", ojson security;
 	]
 
-let addpath path ?reference ?get ?put ?post ?delete ?options ?head ?patch ?parameters lst =
-	let item = assoc [
-		"$ref", ojson reference;
+let addpath
+	path
+	?reference
+	?(get : operation option)
+	?(put : operation option)
+	?(post : operation option)
+	?(delete : operation option)
+	?(options : operation option)
+	?(head : operation option)
+	?(patch : operation option)
+	?(parameters : parameters option)
+	(lst : path list) : path list =
+	let item = make_assoc [
+		"$ref", ostring reference;
 		"get", ojson get;
 		"put", ojson put;
 		"post", ojson post;
@@ -174,17 +229,17 @@ let swagger
 	?schemes
 	?consumes
 	?produces
-	?definitions
-	?parameters
-	?responses
-	?securityDefinitions
-	?security
-	?tags
-	?externalDocs
-	info
-	paths
+	?(definitions : definition list option)
+	?(parameters : parameters option)
+	?(responses : (string * ([ `Response | `Definition ] t option)) list option)
+	?(securityDefinitions : (string * securityScheme option) list option)
+	?(security : security list option)
+	?(tags : tag list option)
+	?(externalDocs : externalDocs option)
+	(info : info)
+	(paths : path list)
 	=
-	assoc [
+	make_assoc [
 		"swagger", string "2.0";
 		"info", json info;
 		"host", ostring host;
@@ -192,12 +247,14 @@ let swagger
 		"schemes", ostringlist schemes;
 		"consumes", ostringlist consumes;
 		"produces", ostringlist produces;
-		"paths", json paths;
-		"definitions", ojson definitions;
-		"parameters", ojson parameters;
-		"responses", ojson responses;
-		"securityDefinitions", ojson securityDefinitions;
+		"paths", assoc paths;
+		"definitions", ojsonlist definitions;
+		"parameters", ojsonlist parameters;
+		"responses", oassoc responses;
+		"securityDefinitions", oassoc securityDefinitions;
 		"security", olist security;
 		"tags", olist tags;
 		"externalDocs", ojson externalDocs;
 	]
+
+let to_json t = t
