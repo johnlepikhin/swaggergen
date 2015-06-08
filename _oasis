@@ -1,0 +1,15 @@
+OASISFormat: 0.4
+Name:        swaggergen
+Version:     0.1
+Synopsis:    Generate valid Swagger IO API description
+Authors:     Evgenii Lepikhin
+License:     LGPL-3.0
+Plugins:     META (0.4)
+BuildTools: ocamlbuild
+AlphaFeatures: ocamlbuild_more_args
+BuildDepends: yojson
+OCamlVersion: >= 4.01
+
+Library swaggergen
+  Path:       src
+  Modules:    Swaggergen
