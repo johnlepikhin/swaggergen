@@ -89,15 +89,6 @@ let info ?description ?termsOfService ?(contact : contact option) ?(license : li
 		"version", string version;
 	]
 
-let parameter ?description ?required name _in (* TODO *) =
-	let required = if _in = "path" then Some true else required in
-	make_assoc [
-		"name", string name;
-		"in", string _in;
-		"description", ostring description;
-		"required", obool required;
-	]
-
 module Schema =
 	struct
 		type s_string = {
@@ -186,6 +177,71 @@ module Schema =
 					]
 			in
 			make_assoc (vals @ _common v)
+	end
+
+module Parameter =
+	struct
+		type general = {
+			_type : string;
+		}
+
+		type body = {
+			schema : schema;
+		}
+
+		type content =
+			| Query of general
+			| Header of general
+			| Path of general
+			| FormData of general
+			| Body of body
+
+		type pt = {
+			name : string;
+			description : string option;
+			required : bool;
+			content : content;
+		}
+
+		let defaults ~content ~name ?description ?(required=true) () = {
+			name; description; required; content;
+		}
+
+		let s_body schema = { schema }
+
+		let s_general _type = { _type }
+
+		let query content = defaults ~content:(Query content)
+		let header content = defaults ~content:(Header content)
+		let path content = defaults ~content:(Path content)
+		let formData content = defaults ~content:(FormData content)
+		let body content = defaults ~content:(Body content)
+
+		let to_t v =
+			let vals = match v.content with
+				| Query g | Header g | Path g | FormData g -> 
+					[
+						"type", string g._type;
+					]
+				| Body b ->
+					[
+						"schema", json b.schema;
+					]
+			in
+			let _in = match v.content with
+				| Query _ -> "query"
+				| Header _ -> "header"
+				| Path _ -> "path"
+				| FormData _ -> "formData"
+				| Body _ -> "body"
+			in
+			let _common = [
+				"name", string v.name;
+				"description", ostring v.description;
+				"required", bool v.required;
+				"in", string _in;
+			] in
+			make_assoc (vals @ _common)
 	end
 
 let addresponse

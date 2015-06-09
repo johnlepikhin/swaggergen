@@ -11,7 +11,7 @@ type info = [ `Info ] t
 
 type parameter = [ `Parameter ] t
 
-type parameters = [ `Parameter | `Reference ] t list
+type parameters = [ `Parameter ] t list
 
 type schema = [ `Schema ] t
 
@@ -46,9 +46,6 @@ val info :
   ?contact:contact ->
   ?license:license -> string -> string -> info
 
-val parameter :
-  ?description:string -> ?required:bool -> string -> string -> parameter
-
 module Schema :
   sig
 		type s_string = {
@@ -79,6 +76,29 @@ module Schema :
 
     val to_schema : st -> schema
   end
+
+module Parameter :
+	sig
+    type general
+    type body
+    type pt
+
+    val s_body : schema -> body
+
+    val s_general : string -> general
+
+    val query : general -> name:string -> ?description:string -> ?required:bool -> unit -> pt
+
+    val header : general -> name:string -> ?description:string -> ?required:bool -> unit -> pt
+
+    val path : general -> name:string -> ?description:string -> ?required:bool -> unit -> pt
+
+    val formData : general -> name:string -> ?description:string -> ?required:bool -> unit -> pt
+
+    val body : body -> name:string -> ?description:string -> ?required:bool -> unit -> pt
+
+	 val to_t : pt -> parameter
+	end
 
 val addresponse :
   ?code:[< `Code of int | `Default > `Default ] ->
