@@ -51,26 +51,31 @@ val parameter :
 
 module Schema :
   sig
-    type s_string = { string_format : string option; }
+		type s_string = {
+			string_format : string option;
+		}
 
-    type s_integer = { integer_format : string option; }
+		val string_defaults : s_string
 
-    type property = { name : string; content : st; required : bool; }
+		type s_integer = {
+			integer_format : string option;
+		}
 
-    and s_object = property list
+		val integer_defaults : s_integer
 
-    and st =
-	 	| String of s_string
-		| Integer of s_integer
-		| Object of s_object
+    type property
 
-    val s_string : ?s_format:string -> unit -> st
+    type st
 
-    val s_integer : ?s_format:string -> unit -> st
+    val s_string : ?content:s_string -> ?title:string -> ?description:string -> unit -> st
+
+    val s_integer : ?content:s_integer -> ?title:string -> ?description:string -> unit -> st
 
     val s_property : ?required:bool -> string -> st -> property
 
-    val s_object : s_object -> st
+    val s_object : property list -> ?title:string -> ?description:string -> unit -> st
+
+	 val s_array : st -> ?title:string -> ?description:string -> unit -> st
 
     val to_schema : st -> schema
   end

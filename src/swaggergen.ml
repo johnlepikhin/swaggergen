@@ -103,51 +103,89 @@ module Schema =
 		type s_string = {
 			string_format : string option;
 		}
+		let string_defaults = {
+			string_format = None;
+		}
 
 		type s_integer = {
 			integer_format : string option;
 		}
+		let integer_defaults = {
+			integer_format = None;
+		}
 
 		type property = {
 			name : string;
-			content : st;
+			property_content : st;
 			required : bool;
 		}
 
-		and s_object = property list
+		and s_object = {
+			props : property list;
+		}
 
-		and st =
+		and s_array = {
+			array_content : st;
+		}
+
+		and _type =
 			| String of s_string
 			| Integer of s_integer
 			| Object of s_object
+			| Array of s_array
 
-		let s_string ?s_format () = String { string_format = s_format }
+		and st = {
+			title : string option;
+			description : string option;
+			content : _type;
+		}
 
-		let s_integer ?s_format () = Integer { integer_format = s_format }
+		let defaults ~content ?title ?description () = {
+			title;
+			description;
+			content;
+		}
 
-		let s_property ?(required=false) name content = { name; content; required }
+		let s_string ?(content=string_defaults) = defaults ~content:(String content)
+		let s_integer ?(content=integer_defaults) = defaults ~content:(Integer content)
 
-		let s_object props = Object props
+		let s_property ?(required=true) name content = { name; property_content = content; required }
 
-		let rec to_schema = function
-			| String v ->
-				make_assoc [
-					"type", string "string";
-					"format", ostring v.string_format;
-				]
-			| Integer v ->
-				make_assoc [
-					"type", string "integer";
-					"format", ostring v.integer_format;
-				]
-			| Object v ->
-				let properties = List.map (fun v -> v.name, (to_schema v.content |> json)) v |> make_assoc in
-				let required = List.fold_left (fun ret v -> if v.required then v.name :: ret else ret) [] v |> stringlist in
-				make_assoc [
-					"type", string "object";
-					"properties", json properties;
-					"required", required;
-				]
+		let s_object props = defaults ~content:(Object { props })
+		let s_array array_content = defaults ~content:(Array { array_content })
+
+		let _common v = [
+			"title", ostring v.title;
+			"description", ostring v.description;
+		]
+
+		let rec to_schema v =
+			let vals = match v.content with
+				| String c ->
+					[
+						"type", string "string";
+						"format", ostring c.string_format;
+					]
+				| Integer c ->
+					[
+						"type", string "integer";
+						"format", ostring c.integer_format;
+					]
+				| Object c ->
+					let properties = List.map (fun p -> p.name, (to_schema p.property_content |> json)) c.props |> make_assoc in
+					let required = List.fold_left (fun ret p -> if p.required then p.name :: ret else ret) [] c.props |> stringlist in
+					[
+						"type", string "object";
+						"properties", json properties;
+						"required", required;
+					]
+				| Array c ->
+					[
+						"type", string "array";
+						"items", json (to_schema c.array_content);
+					]
+			in
+			make_assoc (vals @ _common v)
 	end
 
 let addresponse
