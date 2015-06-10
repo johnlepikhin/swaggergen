@@ -60,6 +60,12 @@ module Schema :
 
 		val integer_defaults : s_integer
 
+		type s_number = {
+			number_format : string option;
+		}
+
+		val number_defaults : s_number
+
     type property
 
     type st
@@ -67,6 +73,10 @@ module Schema :
     val s_string : ?content:s_string -> ?title:string -> ?description:string -> unit -> st
 
     val s_integer : ?content:s_integer -> ?title:string -> ?description:string -> unit -> st
+
+    val s_number : ?content:s_number -> ?title:string -> ?description:string -> unit -> st
+
+    val s_boolean : ?title:string -> ?description:string -> unit -> st
 
     val s_property : ?required:bool -> string -> st -> property
 

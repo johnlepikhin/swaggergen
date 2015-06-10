@@ -105,6 +105,13 @@ module Schema =
 			integer_format = None;
 		}
 
+		type s_number = {
+			number_format : string option;
+		}
+		let number_defaults = {
+			number_format = None;
+		}
+
 		type property = {
 			name : string;
 			property_content : st;
@@ -122,6 +129,8 @@ module Schema =
 		and _type =
 			| String of s_string
 			| Integer of s_integer
+			| Number of s_number
+			| Boolean
 			| Object of s_object
 			| Array of s_array
 
@@ -139,6 +148,8 @@ module Schema =
 
 		let s_string ?(content=string_defaults) = defaults ~content:(String content)
 		let s_integer ?(content=integer_defaults) = defaults ~content:(Integer content)
+		let s_number ?(content=number_defaults) = defaults ~content:(Number content)
+		let s_boolean = defaults ~content:Boolean
 
 		let s_property ?(required=true) name content = { name; property_content = content; required }
 
@@ -161,6 +172,15 @@ module Schema =
 					[
 						"type", string "integer";
 						"format", ostring c.integer_format;
+					]
+				| Number c ->
+					[
+						"type", string "number";
+						"format", ostring c.number_format;
+					]
+				| Boolean ->
+					[
+						"type", string "boolean";
 					]
 				| Object c ->
 					let properties = List.map (fun p -> p.name, (to_schema p.property_content |> json)) c.props |> make_assoc in
